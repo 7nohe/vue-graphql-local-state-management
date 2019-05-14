@@ -1,0 +1,535 @@
+<section>
+
+<h2>VueとGraphQLの</h2>
+<h2>アプリケーション開発について</h2>
+
+<p>Daiki Urata (Fusic Co.,Ltd.)<br>
+Twitter: <a href="https://twitter.com/daiki7nohe">@daiki7nohe</a></p>
+
+</section>
+<section>
+
+<h2>話すこと</h2>
+
+<ul>
+  <li>
+    <p>GraphQLについて</p>
+  </li>
+  <li>
+    <p>Apolloについて</p>
+  </li>
+  <li>
+    <p>Apollo ClientのCache</p>
+  </li>
+  <li>
+    <p>Vue + GraphQLのLocal State Management</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>GraphQLについて</h2>
+
+<ul>
+  <li>
+    <p>API用のクエリ言語</p>
+  </li>
+  <li>
+    <p>一つのエンドポイント</p>
+  </li>
+  <li>
+    <p>型がある</p>
+  </li>
+  <li>
+    <p>受け取り側でスキーマを定義</p>
+  </li>
+  <li>
+    <p>要求側でQueryを投げてデータ取得</p>
+  </li>
+  <li>
+    <p>サーバーへの変更はMutation</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>Schema (受け取り側)</h2>
+
+<pre><code class="language-js">type Query {
+  todos: [Todo]
+}
+
+type Post {
+  id: ID!
+  title: String
+  body: String
+}
+</code></pre>
+
+<h2>Query (要求側)</h2>
+
+<pre><code class="language-js">query GetPosts {
+  posts {
+    id
+    title
+  }
+}
+</code></pre>
+
+</section>
+<section>
+
+<h2>Mutation (要求側)</h2>
+
+<pre><code class="language-js">mutation CreateTodo ($title: String, $body: String) {
+  createTodo (title: $title, body: $body) {
+    id
+  }
+}
+</code></pre>
+
+</section>
+<section>
+
+<h2>Apolloについて</h2>
+
+<ul>
+  <li>
+    <p>GraphQLのプラットフォーム</p>
+  </li>
+  <li>
+    <p>Apollo Server, Apollo Clientなどのオープンソース</p>
+  </li>
+  <li>
+    <p>Schema registryなどのクラウドサービス</p>
+  </li>
+  <li>
+    <p>その他IDEプラグインやブラウザ拡張ツールなど</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>Apollo Client</h2>
+
+<ul>
+  <li>
+    <p>GraphQLクライアント</p>
+  </li>
+  <li>
+    <p>react-apollo, apollo-angular, vue-apollo</p>
+  </li>
+  <li>
+    <p>キャッシュされる</p>
+  </li>
+  <li>
+    <p>Vue CLIならvue-cli-plugin-apolloが簡単</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<pre><code class="language-js">// apollo.js
+import { ApolloClient } from "apollo-client";
+const apolloClient = new ApolloClient({ ... })
+
+export default apolloClient;
+</code></pre>
+
+</section>
+<section>
+
+<pre><code class="language-js">// main.js
+
+import VueApollo from "vue-apollo";
+import apolloClient from "./apollo";
+
+Vue.use(VueApollo);
+
+const apolloProvider = new VueApollo({
+  defaultClient: apolloClient
+});
+
+new Vue({
+  apolloProvider,
+  render: h =&gt; h(App)
+}).$mount("#app");
+
+</code></pre>
+
+</section>
+<section>
+
+<p>vue-apollo (apolloオプション)</p>
+
+<pre><code class="language-js">import gql from "graphql-tag";
+export default {
+  apollo: {
+    todos: {
+      query: gql`
+       query getTodos {
+          todos {
+            id
+            title
+            body
+          }
+        }
+      `
+    }
+  },
+  data () {
+    return {
+      todos: []
+    }
+  }
+}
+</code></pre>
+
+</section>
+<section>
+
+<p>vue-apollo ($apollo)</p>
+
+<pre><code class="language-js">export default {
+  created () {
+    this.$apollo.query({
+      query: gql`
+        query getTodos {
+          todos {
+            id
+            title
+            body
+          }
+        }
+      `
+    })
+    .then(result =&gt; {
+      // Your code here...
+    })
+  }
+}
+</code></pre>
+
+</section>
+<section>
+
+<p>vue-apollo (ApolloQueryコンポーネント)</p>
+<pre><code class="language-html">&lt;ApolloQuery
+  :query="require('../graphql/GetTodos.gql')"
+&gt;
+  &lt;template slot-scope="{ result: { loading, error, data } }"&gt;
+    &lt;!-- Loading --&gt;
+    &lt;div v-if="loading"&gt;Loading...&lt;/div&gt;
+    &lt;!-- Error --&gt;
+    &lt;div v-else-if="error"&gt;An error occured&lt;/div&gt;
+    &lt;!-- Result --&gt;
+    &lt;ul v-else-if="data"&gt;
+      &lt;li v-for="todo in data.todos" :key="todo.id"&gt;
+        Title: {{ todo.title }}, Body: {{ todo.body }}
+      &lt;/li&gt;
+    &lt;/ul&gt;
+    &lt;!-- No result --&gt;
+    &lt;div v-else&gt;No result :(&lt;/div&gt;
+  &lt;/template&gt;
+&lt;/ApolloQuery&gt;
+</code></pre>
+
+</section>
+<section>
+
+<h2>Apollo ClientのCache</h2>
+
+<ul>
+  <li>
+    <p>一度投げたクエリ結果はキャッシュされる</p>
+  </li>
+  <li>
+    <p>クエリに変更があればサーバーへリクエスト</p>
+  </li>
+  <li>
+    <p>fetchPolicyで変えられる</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>Cacheの有効化</h2>
+
+<pre><code>$ npm install apollo-cache-inmemory
+</code></pre>
+
+<pre><code class="language-js">import { InMemoryCache } from 'apollo-cache-inmemory';
+import { HttpLink } from 'apollo-link-http';
+import { ApolloClient } from 'apollo-client';
+
+const cache = new InMemoryCache();
+
+const client = new ApolloClient({
+  link: new HttpLink(),
+  cache
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>DEMO</h2>
+
+</section>
+<section>
+
+<p>fetchPolicy</p>
+<ul>
+  <li>
+    <p><code>cache-first</code> : クエリ結果をキャッシュし、その後はキャッシュを使う</p>
+  </li>
+  <li>
+    <p><code>cache-and-network</code> : キャッシュも使いつつ、サーバーへはリクエスト</p>
+  </li>
+  <li>
+    <p><code>network-only</code> : キャッシュなし。必ずサーバーへリクエスト</p>
+  </li>
+  <li>
+    <p><code>cache-only</code> : キャッシュだけにアクセス</p>
+  </li>
+  <li>
+    <p><code>no-cache</code> : <code>network-only</code> とほぼ同じだが、クエリ結果すらキャッシュに残さない</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>便利だなー <img class="emoji" alt=":blush:" src="https://github.githubassets.com/images/icons/emoji/unicode/1f60a.png">
+</h2>
+
+</section>
+<section>
+
+<h2>状態の二重管理では？ <img class="emoji" alt=":thinking:" src="https://github.githubassets.com/images/icons/emoji/unicode/1f914.png">
+</h2>
+
+</section>
+<section>
+
+<ul>
+  <li>
+    <p>ある程度大規模になるとVuexで状態管理したい</p>
+  </li>
+  <li>
+    <p>キャッシュデータをまたVuexで？</p>
+  </li>
+  <li>
+    <p>Vuexからキャッシュへわざわざアクセス？</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>キャッシュだけで状態管理は？</h2>
+
+</section>
+<section>
+
+<h2>Apollo Clientでの状態管理</h2>
+
+<ul>
+  <li>
+    <p>Apolloのキャッシュでローカルの状態も一括管理</p>
+  </li>
+  <li>
+    <p>元々は <code>apollo-link-state</code> (今はdeprecated)</p>
+  </li>
+  <li>
+    <p>Apollo Client &gt;= 2.5ではそのままでOK</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>キャッシュへの書き込み方法１</h2>
+<pre><code class="language-js">import { ApolloClient } from 'apollo-client';
+import { InMemoryCache } from 'apollo-cache-inmemory';
+
+const cache = new InMemoryCache();
+const client = new ApolloClient({
+  cache,
+  resolvers: {
+    Mutation: {
+      setSelectedId(_root, { id }, { cache }) {
+        cache.writeData({ data: { selectedId: id } });
+        return null;
+      }
+    }
+  },
+});
+
+// 初期値をセット
+cache.writeData({
+  data: {
+    selectedId: 1
+  }
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>キャッシュへの書き込み方法１</h2>
+
+<pre><code class="language-js">this.$apollo.mutate({
+  mutation: gql`
+    mutation SetSelectedId($id: ID) {
+      setSelectedId(id: $id) @client
+    }
+  `,
+  variables: {
+    id
+  }
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>キャッシュへの書き込み方法２</h2>
+
+<pre><code class="language-js">this.$apollo.getClient().writeQuery({
+  query: gql`
+    {
+      selectedId
+    }
+  `,
+  data: {
+    selectedId: id
+  }
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>キャッシュから状態取得方法１</h2>
+
+<pre><code class="language-js">export default {
+  apollo: {
+    selectedId: {
+      query: gql`
+        query GetSelectedID {
+          selectedId @client
+        }
+      `
+    }
+  },
+  data() {
+    return {
+      selectedId: null
+    };
+  },
+}
+</code></pre>
+
+</section>
+<section>
+
+<h2>キャッシュから状態取得方法２</h2>
+
+<pre><code class="language-js">this.$apollo.query({
+  query: gql`
+    query GetSelectedID {
+      selectedId @client
+    }
+  `
+}).then(result =&gt; {
+  this.todos = result.data.todos
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>キャッシュから状態取得方法３</h2>
+<pre><code class="language-js">this.todos = this.$apollo.getClient().readQuery({
+  query: gql`
+    query GetSelectedID {
+      selectedId @client
+    }
+  `
+});
+</code></pre>
+
+</section>
+<section>
+
+<h2>DEMO</h2>
+
+</section>
+<section>
+
+<p><img src="https://user-images.githubusercontent.com/9207663/57682192-39d02a80-766c-11e9-9816-f03f54fda60c.png"></p>
+
+</section>
+<section>
+
+<p><img src="https://user-images.githubusercontent.com/9207663/57682199-3ccb1b00-766c-11e9-911a-6ceac1407eb4.png"></p>
+
+</section>
+<section>
+
+<p><img src="https://user-images.githubusercontent.com/9207663/57682205-3f2d7500-766c-11e9-8584-beee76d696d7.png"></p>
+
+</section>
+<section>
+
+<h2>悲しい部分</h2>
+
+<p>Local Stateのスキーマは定義できるがバリデーションまではしてくれない</p>
+
+<pre><code>new ApolloClient({
+  typeDefs: gql`
+      extend type Query {
+        selectedId: Boolean! // &lt;- エラーにならない
+      }
+    `
+})
+</code></pre>
+
+</section>
+<section>
+
+<h2>まとめ</h2>
+
+<ul>
+  <li>
+    <p>Apolloキャッシュ便利</p>
+  </li>
+  <li>
+    <p>ただ状態管理は色々と考える部分あり</p>
+  </li>
+</ul>
+
+</section>
+<section>
+
+<h2>参考</h2>
+
+<ul>
+  <li>
+    <p><a href="https://www.apollographql.com/docs/react/advanced/caching">https://www.apollographql.com/docs/react/advanced/caching</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.apollographql.com/docs/angular/basics/local-state">https://www.apollographql.com/docs/angular/basics/local-state</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.apollographql.com/docs/react/essentials/local-state">https://www.apollographql.com/docs/react/essentials/local-state</a></p>
+  </li>
+</ul>
+
+</section>
